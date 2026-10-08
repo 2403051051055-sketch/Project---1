@@ -111,8 +111,31 @@ const Login = () => {
           </button>
         </form>
 
+        {/* 1-Click Demo Sign In Button for instant testing */}
+        <div className="mt-4 pt-4 border-t border-slate-800 text-center">
+          <button
+            type="button"
+            onClick={async () => {
+              setEmail('bhavishadabhi08@gmail.com');
+              setPassword('password123');
+              setSubmitting(true);
+              setFormError('');
+              const res = await login('bhavishadabhi08@gmail.com', 'password123');
+              setSubmitting(false);
+              if (res.success) {
+                navigate('/dashboard');
+              } else {
+                setFormError(res.message);
+              }
+            }}
+            className="w-full py-2 px-3 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+          >
+            <span>⚡ 1-Click Quick Demo Sign In</span>
+          </button>
+        </div>
+
         {/* Footer Link */}
-        <div className="mt-6 text-center text-xs text-slate-400">
+        <div className="mt-5 text-center text-xs text-slate-400">
           Don't have an account?{' '}
           <Link to="/register" className="text-indigo-400 font-semibold hover:underline">
             Create account
