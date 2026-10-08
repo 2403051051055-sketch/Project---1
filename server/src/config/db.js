@@ -1,13 +1,6 @@
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-
-let mongoMemoryServer = null;
 
 const connectDB = async () => {
-  // Connection reuse for serverless environments
   if (mongoose.connection && mongoose.connection.readyState === 1) {
     return;
   }
@@ -24,29 +17,37 @@ const connectDB = async () => {
     }
   }
 
-  // Fallback: Persistent / In-Memory database setup
-  try {
-    if (!mongoMemoryServer) {
-      // Use os.tmpdir() to avoid EROFS read-only filesystem errors on Vercel serverless
-      const dbDir = path.join(os.tmpdir(), 'nltaskmanager_db');
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
-      }
+  // If running on Vercel serverless environment
+  if (process.env.VERCEL) {
+    console.warn('[MongoDB Notice] Serverless environment detected.');
+    return;
+  }
 
-      mongoMemoryServer = await MongoMemoryServer.create({
-        instance: {
-          ip: '127.0.0.1',
-          dbName: 'nltaskmanager',
-          dbPath: dbDir,
-        },
-      });
+  // Dynamic require for local offline development to prevent serverless bundle crashes
+  try {
+    const { MongoMemoryServer } = require('mongodb-memory-server');
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+
+    const dbDir = path.join(os.tmpdir(), 'nltaskmanager_db');
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
     }
 
+    const mongoMemoryServer = await MongoMemoryServer.create({
+      instance: {
+        ip: '127.0.0.1',
+        dbName: 'nltaskmanager',
+        dbPath: dbDir,
+      },
+    });
+
     const memUri = mongoMemoryServer.getUri();
-    const conn = await mongoose.connect(memUri);
-    console.log(`[MongoDB] Database connected successfully: ${memUri}`);
+    await mongoose.connect(memUri);
+    console.log(`[MongoDB] Local DB connected: ${memUri}`);
   } catch (memError) {
-    console.error(`[MongoDB Error] In-Memory database initialization notice:`, memError.message);
+    console.error(`[MongoDB Local DB Error]:`, memError.message);
   }
 };
 
