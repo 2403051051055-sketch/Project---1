@@ -1,0 +1,35 @@
+{
+  "name": "nl-task-manager-server",
+  "version": "1.0.0",
+  "description": "Backend REST API for Natural-Language Task Manager powered by Google Gemini API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "gemini",
+    "task-manager",
+    "nlp"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.14.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb-memory-server": "^9.2.0",
+    "mongoose": "^8.4.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.13",
+    "resend": "^6.32.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.2"
+  }
+}

@@ -3,6 +3,8 @@
 ## 1. Executive Summary
 The **Natural-Language Task Manager** is a full-stack MERN (MongoDB, Express.js, React, Node.js) web application powered by the Google Gemini API. It enables users to type task descriptions in natural, conversational English (e.g., *"submit report by Friday 5pm, high priority"*) and automatically extracts structured attributes including task title, description, due date/time, priority level, and tags/labels. Users can preview and tweak the parsed metadata before committing it to their personal task list or calendar.
 
+Detailed phase-by-phase implementation plans are maintained in separate markdown documents under [`docs/plans/`](file:///c:/Users/BHAVISHA%20DABHI/OneDrive/Desktop/Project%20-%201/docs/plans/00-master-roadmap.md).
+
 ---
 
 ## 2. Technology Stack & Architecture
