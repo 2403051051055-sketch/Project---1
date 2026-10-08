@@ -8,20 +8,6 @@ const createTransporter = async () => {
     return cachedTransporter;
   }
 
-  if (process.env.SMTP_USER && process.env.SMTP_USER !== 'your_email@gmail.com') {
-    cachedTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-    return cachedTransporter;
-  }
-
-  // Automatic zero-config Ethereal test account fallback
   const testAccount = await nodemailer.createTestAccount();
   cachedTransporter = nodemailer.createTransport({
     host: 'smtp.ethereal.email',
@@ -58,7 +44,35 @@ const sendTaskReminderEmail = async (userEmail, task) => {
       </div>
     `;
 
-    // 1. Primary: Use Resend API if RESEND_API_KEY is available (Delivers to real inbox)
+    // 1. Primary: Use Gmail / Custom SMTP if configured (Delivers to ANY email address globally)
+    if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_USER !== 'your_email@gmail.com') {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '587', 10),
+          secure: false,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        const mailOptions = {
+          from: `"Task Manager AI" <${process.env.SMTP_USER}>`,
+          to: userEmail,
+          subject: `⏰ Task Reminder: "${task.title}" is due soon!`,
+          html: htmlContent,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[SMTP Email Service] Real email delivered to ${userEmail} (ID: ${info.messageId})`);
+        return { success: true, id: info.messageId, service: 'SMTP' };
+      } catch (smtpErr) {
+        console.warn('[SMTP Error] Fallback to Resend/Ethereal:', smtpErr.message);
+      }
+    }
+
+    // 2. Secondary: Resend API
     if (process.env.RESEND_API_KEY) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -70,22 +84,18 @@ const sendTaskReminderEmail = async (userEmail, task) => {
         });
 
         if (resendResponse && resendResponse.data && resendResponse.data.id) {
-          console.log(`[Resend Email Service] Real email delivered to ${userEmail} for task "${task.title}" (ID: ${resendResponse.data.id})`);
+          console.log(`[Resend Email Service] Real email delivered to ${userEmail} (ID: ${resendResponse.data.id})`);
           return { success: true, id: resendResponse.data.id, service: 'Resend' };
         }
       } catch (resendError) {
-        console.warn(`[Resend Notice] Fallback to Nodemailer:`, resendError.message);
+        console.warn(`[Resend Notice] Fallback to Ethereal:`, resendError.message);
       }
     }
 
-    // 2. Secondary: Fallback to Nodemailer
+    // 3. Fallback: Ethereal test account
     const transporter = await createTransporter();
-    const senderEmail = process.env.SMTP_USER && process.env.SMTP_USER !== 'your_email@gmail.com'
-      ? process.env.SMTP_USER
-      : 'noreply@taskmanager.ai';
-
     const mailOptions = {
-      from: `"Task Manager AI" <${senderEmail}>`,
+      from: `"Task Manager AI" <noreply@taskmanager.ai>`,
       to: userEmail,
       subject: `⏰ Task Reminder: "${task.title}" is due soon!`,
       html: htmlContent,
@@ -94,12 +104,8 @@ const sendTaskReminderEmail = async (userEmail, task) => {
     const info = await transporter.sendMail(mailOptions);
     const previewUrl = nodemailer.getTestMessageUrl(info);
 
-    console.log(`[Email Service] Reminder sent to ${userEmail} for task "${task.title}"`);
-    if (previewUrl) {
-      console.log(`[Email Service Preview URL]: ${previewUrl}`);
-    }
-
-    return { success: true, previewUrl, service: 'Nodemailer' };
+    console.log(`[Email Service] Reminder sent to ${userEmail}`);
+    return { success: true, previewUrl, service: 'Ethereal' };
   } catch (error) {
     console.error(`[Email Service Error] Failed to send email to ${userEmail}:`, error.message);
     return false;
