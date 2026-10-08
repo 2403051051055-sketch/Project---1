@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/index.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
     },
     {
@@ -16,10 +16,19 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/index.js"
+      "dest": "api/index.js"
     },
     {
-      "handle": "filesystem"
+      "src": "/assets/(.*)",
+      "dest": "client/assets/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "client/favicon.ico"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "client/vite.svg"
     },
     {
       "src": "/(.*)",
