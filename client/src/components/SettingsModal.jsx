@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, User, Mail, Globe, Bell, ShieldCheck, LogOut, X, Check, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const SettingsModal = ({ onClose }) => {
   const { user, logout, updateUserProfile } = useAuth();
@@ -9,6 +10,32 @@ const SettingsModal = ({ onClose }) => {
   const [timeZone, setTimeZone] = useState(user?.timeZone || 'UTC');
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [testEmailStatus, setTestEmailStatus] = useState(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleSendTestEmail = async () => {
+    setSendingEmail(true);
+    setTestEmailStatus(null);
+    try {
+      const res = await api.post('/tasks/test-reminder');
+      if (res.data && res.data.success) {
+        setTestEmailStatus({
+          type: 'success',
+          message: res.data.message,
+          previewUrl: res.data.data?.previewUrl,
+        });
+      } else {
+        setTestEmailStatus({ type: 'error', message: res.data?.message || 'Email sending failed' });
+      }
+    } catch (err) {
+      setTestEmailStatus({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to send test email',
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
@@ -109,28 +136,76 @@ const SettingsModal = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Email Notification Toggle */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <label className="text-xs font-semibold text-white flex items-center gap-1.5">
-                <Bell className="w-3.5 h-3.5 text-amber-400" />
-                Email Task Reminders
-              </label>
-              <p className="text-[11px] text-slate-400">Receive email alerts 1 hour before tasks are due</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEmailNotifications(!emailNotifications)}
-              className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-                emailNotifications ? 'bg-sky-500' : 'bg-slate-800'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                  emailNotifications ? 'translate-x-5' : 'translate-x-0'
+          {/* Email Notification Toggle & Test Button */}
+          <div className="p-4 rounded-xl bg-slate-900/60 border border-white/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <label className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <Bell className="w-3.5 h-3.5 text-amber-400" />
+                  Email Task Reminders
+                </label>
+                <p className="text-[11px] text-slate-400">Receive email alerts 1 hour before tasks are due</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmailNotifications(!emailNotifications)}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
+                  emailNotifications ? 'bg-sky-500' : 'bg-slate-800'
                 }`}
-              />
-            </button>
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                    emailNotifications ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Instant Test Email Trigger */}
+            <div className="pt-2 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-[11px] text-slate-400">Want to test email delivery right now?</span>
+              <button
+                type="button"
+                disabled={sendingEmail}
+                onClick={handleSendTestEmail}
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all self-start sm:self-auto disabled:opacity-50"
+              >
+                {sendingEmail ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Sending Email...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Test Email Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Test Email Output Alert */}
+            {testEmailStatus && (
+              <div
+                className={`p-3 rounded-lg text-xs border ${
+                  testEmailStatus.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                }`}
+              >
+                <p className="font-semibold">{testEmailStatus.message}</p>
+                {testEmailStatus.previewUrl && (
+                  <a
+                    href={testEmailStatus.previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block mt-1 text-sky-400 underline font-semibold hover:text-sky-300"
+                  >
+                    👉 Click here to view rendered test email preview
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* System & AI Engine Status */}

@@ -228,13 +228,14 @@ const testReminder = async (req, res, next) => {
     if (!sent) {
       return res.status(400).json({
         success: false,
-        message: 'Email not sent. Ensure SMTP_USER and SMTP_PASS are configured in server/.env',
+        message: 'Email not sent. Ensure email service credentials are configured.',
       });
     }
 
     res.json({
       success: true,
-      message: `Test reminder email successfully sent to ${req.user.email}`,
+      message: `Test reminder email successfully triggered to ${req.user.email}`,
+      data: sent,
     });
   } catch (error) {
     next(error);
