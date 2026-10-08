@@ -15,12 +15,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-let dbPromise = null;
 app.use(async (req, res, next) => {
-  if (!dbPromise) {
-    dbPromise = connectDB();
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error('[DB Connection Middleware Error]:', err.message);
   }
-  await dbPromise;
   next();
 });
 

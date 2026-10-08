@@ -1,36 +1,36 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 let mongoMemoryServer = null;
 
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/nltaskmanager';
+  // Connection reuse for serverless environments
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    return;
+  }
 
-  try {
-    // Attempt standard connection with 3-second timeout
-    const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 3000 });
-    console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
-  } catch (error) {
-    console.warn(`[MongoDB Notice] Local MongoDB service not detected on ${uri}`);
-    console.log(`[MongoDB] Starting automatic Persistent Local MongoDB Server...`);
-    
+  const uri = process.env.MONGO_URI;
+
+  if (uri && uri !== 'your_mongodb_uri_here') {
     try {
-      const dbDir = path.join(__dirname, '../../.data/db');
+      const conn = await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+      console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
+      return;
+    } catch (error) {
+      console.error(`[MongoDB Error] Failed to connect to MONGO_URI:`, error.message);
+    }
+  }
+
+  // Fallback: Persistent / In-Memory database setup
+  try {
+    if (!mongoMemoryServer) {
+      // Use os.tmpdir() to avoid EROFS read-only filesystem errors on Vercel serverless
+      const dbDir = path.join(os.tmpdir(), 'nltaskmanager_db');
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
-      } else {
-        const lockFile = path.join(dbDir, 'mongod.lock');
-        if (fs.existsSync(lockFile)) {
-          try {
-            fs.unlinkSync(lockFile);
-            console.log('[MongoDB] Cleaned stale lock file.');
-          } catch (e) {
-            console.warn('[MongoDB] Lock file notice:', e.message);
-          }
-        }
       }
 
       mongoMemoryServer = await MongoMemoryServer.create({
@@ -38,15 +38,15 @@ const connectDB = async () => {
           ip: '127.0.0.1',
           dbName: 'nltaskmanager',
           dbPath: dbDir,
-          storageEngine: 'wiredTiger',
         },
       });
-      const memUri = mongoMemoryServer.getUri();
-      const conn = await mongoose.connect(memUri);
-      console.log(`[MongoDB] Persistent Database connected successfully: ${memUri}`);
-    } catch (memError) {
-      console.error(`[MongoDB Error] Failed to start Persistent Local MongoDB:`, memError.message);
     }
+
+    const memUri = mongoMemoryServer.getUri();
+    const conn = await mongoose.connect(memUri);
+    console.log(`[MongoDB] Database connected successfully: ${memUri}`);
+  } catch (memError) {
+    console.error(`[MongoDB Error] In-Memory database initialization notice:`, memError.message);
   }
 };
 
