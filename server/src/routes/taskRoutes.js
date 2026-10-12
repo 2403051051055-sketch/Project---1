@@ -9,6 +9,7 @@ const {
   toggleTaskStatus,
   deleteTask,
   testReminder,
+  sendTaskReminder,
 } = require('../controllers/taskController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -17,6 +18,7 @@ router.use(protect);
 
 router.post('/parse', parseTask);
 router.post('/test-reminder', testReminder);
+router.post('/:id/remind', sendTaskReminder);
 router.route('/')
   .post(createTask)
   .get(getTasks);

@@ -1,8 +1,10 @@
-import React from 'react';
-import { Calendar, AlertTriangle, Edit3, Trash2, CheckCircle2, Clock, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, AlertTriangle, Edit3, Trash2, CheckCircle2, Clock, RotateCcw, Mail, Loader2, Check } from 'lucide-react';
 import { formatDistanceToNow, format, isBefore } from 'date-fns';
+import api from '../services/api';
 
 const TaskCard = ({ task, onToggleStatus, onEditTask, onDeleteTask }) => {
+  const [emailState, setEmailState] = useState({ loading: false, msg: null, isError: false });
   const isCompleted = task.status === 'completed';
   const isReopened = task.status === 'reopened';
   const hasDueDate = Boolean(task.dueDate);
@@ -79,6 +81,48 @@ const TaskCard = ({ task, onToggleStatus, onEditTask, onDeleteTask }) => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+          <button
+            disabled={emailState.loading}
+            onClick={async () => {
+              setEmailState({ loading: true, msg: null, isError: false });
+              try {
+                const res = await api.post(`/tasks/${task._id}/remind`);
+                if (res.data && res.data.success) {
+                  setEmailState({ loading: false, msg: 'Sent!', isError: false });
+                  setTimeout(() => setEmailState({ loading: false, msg: null, isError: false }), 3000);
+                }
+              } catch (e) {
+                const errMsg = e.response?.data?.message || 'Failed';
+                setEmailState({ loading: false, msg: errMsg, isError: true });
+                setTimeout(() => setEmailState({ loading: false, msg: null, isError: false }), 4000);
+              }
+            }}
+            title="Send Email Reminder for this task directly to your inbox"
+            className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${
+              emailState.isError
+                ? 'text-rose-400 bg-rose-500/10'
+                : emailState.msg
+                ? 'text-emerald-400 bg-emerald-500/10'
+                : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+            }`}
+          >
+            {emailState.loading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="text-[11px]">Sending...</span>
+              </>
+            ) : emailState.msg ? (
+              <>
+                {emailState.isError ? <AlertTriangle className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                <span className="text-[11px]">{emailState.msg}</span>
+              </>
+            ) : (
+              <>
+                <Mail className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Email Me</span>
+              </>
+            )}
+          </button>
           <button
             onClick={() => onEditTask(task)}
             title="Edit Task"

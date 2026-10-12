@@ -51,6 +51,28 @@ const createTask = async (req, res, next) => {
       subject: subject || '',
     });
 
+    // Auto-dispatch reminder if task is due soon (within 30 minutes, e.g. "in 1 min", "in 5 min")
+    if (task.dueDate && req.user.email) {
+      const timeUntilDueMs = new Date(task.dueDate).getTime() - Date.now();
+      const isDueSoon = timeUntilDueMs <= 30 * 60 * 1000;
+
+      if (isDueSoon) {
+        try {
+          const { sendTaskReminderEmail } = require('../services/emailService');
+          const sent = await sendTaskReminderEmail(req.user.email, task, 'minutes_before');
+          if (sent && sent.success) {
+            task.reminderSent = true;
+            task.lastReminderSentAt = new Date();
+            if (!task.remindersSent) task.remindersSent = [];
+            task.remindersSent.push({ stage: 'minutes_before', sentAt: new Date() });
+            await task.save();
+          }
+        } catch (emailErr) {
+          console.warn('[Auto Email Dispatch Warning]:', emailErr.message);
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: task,
@@ -242,6 +264,39 @@ const testReminder = async (req, res, next) => {
   }
 };
 
+// @desc    Trigger email reminder for a specific task
+// @route   POST /api/tasks/:id/remind
+// @access  Private
+const sendTaskReminder = async (req, res, next) => {
+  try {
+    const task = await Task.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!task) {
+      res.status(404);
+      throw new Error('Task not found');
+    }
+
+    const { sendTaskReminderEmail } = require('../services/emailService');
+    const sent = await sendTaskReminderEmail(req.user.email, task);
+    if (!sent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email could not be delivered. Please check service configuration.',
+      });
+    }
+
+    task.reminderSent = true;
+    await task.save();
+
+    res.json({
+      success: true,
+      message: `Reminder email for "${task.title}" sent to ${req.user.email}`,
+      data: sent,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   parseTask,
   createTask,
@@ -251,4 +306,5 @@ module.exports = {
   toggleTaskStatus,
   deleteTask,
   testReminder,
+  sendTaskReminder,
 };

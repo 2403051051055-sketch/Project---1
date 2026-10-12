@@ -60,17 +60,28 @@ Return ONLY a valid JSON object matching this exact structure with no extra text
 `;
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    
-    // 8s timeout promise for API response
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Gemini API response timeout (8s limit)')), 8000)
-    );
+    const candidateModels = ['gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash'];
+    let result = null;
 
-    const result = await Promise.race([
-      model.generateContent(systemPrompt),
-      timeoutPromise,
-    ]);
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout on ${modelName}`)), 7000)
+        );
+        result = await Promise.race([
+          model.generateContent(systemPrompt),
+          timeoutPromise,
+        ]);
+        if (result && result.response) break;
+      } catch (modelErr) {
+        console.warn(`[Gemini Service] Model ${modelName} failed: ${modelErr.message}. Trying next candidate...`);
+      }
+    }
+
+    if (!result || !result.response) {
+      throw new Error('All candidate models exhausted');
+    }
 
     const responseText = result.response.text();
 
@@ -151,6 +162,22 @@ const parseRelativeDate = (text) => {
     }
   }
 
+  // Relative offset like "in 1 min", "in 10 minutes", "in 2 hours", "in 3 days"
+  const offsetMatch = lower.match(/in\s+(\d+)\s*(min(?:ute)?s?|hours?|days?)/i);
+  if (offsetMatch) {
+    const val = parseInt(offsetMatch[1], 10);
+    const unit = offsetMatch[2].toLowerCase();
+    const d = new Date(now);
+    if (unit.startsWith('min')) {
+      d.setMinutes(d.getMinutes() + val);
+    } else if (unit.startsWith('hour')) {
+      d.setHours(d.getHours() + val);
+    } else if (unit.startsWith('day')) {
+      d.setDate(d.getDate() + val);
+    }
+    return d.toISOString();
+  }
+
   if (lower.includes('tomorrow')) {
     const d = new Date(now);
     d.setDate(d.getDate() + 1);
@@ -198,6 +225,7 @@ const smartFallbackParse = (rawText) => {
     .replace(/#([a-zA-Z0-9_\-]+)/g, '')
     .replace(/,\s*(high|low|medium)\s*priority/gi, '')
     .replace(/(high|low|medium)\s*priority\s*,?/gi, '')
+    .replace(/in\s+\d+\s*(?:min(?:ute)?s?|hours?|days?)/gi, '')
     .replace(/(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|tonight)(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?/gi, '')
     .replace(/(?:at|by)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)/gi, '')
     .trim();
